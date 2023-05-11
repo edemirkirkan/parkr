@@ -1,6 +1,11 @@
 package com.parkr.parkr.parking_lot;
 
 import com.parkr.parkr.common.ApiResponse;
+import com.parkr.parkr.common.LocationModel;
+import com.parkr.parkr.common.ParkingLotOperationModel;
+import com.parkr.parkr.common.PlaceDetailRequestModel;
+
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 
 import org.json.JSONArray;
@@ -20,49 +25,60 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("parkingLots")
+@SecurityRequirement(name = "parkr")
 public class ParkingLotController
 {
     private final IParkingLotService parkingLotService;
 
     @PostMapping(value = "/nearby")
-    @PreAuthorize("hasAuthority('USER')")
-    public ApiResponse getNearbyParkingLots(@RequestBody String json) {
-        JSONObject jsonObject = new JSONObject(json);
-        Double latitude = jsonObject.getDouble("latitude");
-        Double longitude = jsonObject.getDouble("longitude");
-        JSONArray results = parkingLotService.getNearbyLots(latitude, longitude, "en");
-        return ApiResponse.ok(results.toList());
+    @PreAuthorize("hasAuthority('USER') or hasAuthority('ADMIN')")
+    public ApiResponse getNearbyParkingLots(@RequestBody LocationModel location) {
+        Double latitude = location.getLatitude();
+        Double longitude = location.getLongitude();
+        return ApiResponse.ok(parkingLotService.getNearbyLots(latitude, longitude));
     }
 
     @PostMapping(value = "/place-details")
-    @PreAuthorize("hasAuthority('USER')")
-    public ApiResponse getPlaceDetails(@RequestBody String json) {
-        JSONObject jsonObject = new JSONObject(json);
-        String placeID = jsonObject.getString("placeID");
-        JSONObject result = parkingLotService.getParkingLotByPlaceID(placeID);
-        if (result == null) {
-            return ApiResponse.ok(new JSONObject()); // will change.
-        }
-        return ApiResponse.ok(result.toMap());
+    @PreAuthorize("hasAuthority('USER') or hasAuthority('ADMIN')")
+    public ApiResponse getPlaceDetails(@RequestBody PlaceDetailRequestModel place) {
+        return ApiResponse.ok(parkingLotService.getParkingLotByPlaceID(place.getPlaceID()));
+    }
+
+    @PostMapping(value = "/entry")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ApiResponse enterParkingLot(@RequestBody ParkingLotOperationModel entryInfo) {
+        parkingLotService.enterParkingLot(entryInfo.getLicensePlate(), entryInfo.getParkingLotID());
+        return ApiResponse.ok();
+    }
+
+    @PostMapping(value = "/exit")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ApiResponse exitParkingLot(@RequestBody ParkingLotOperationModel exitInfo) {
+        parkingLotService.exitParkingLot(exitInfo.getLicensePlate(), exitInfo.getParkingLotID());
+        return ApiResponse.ok();
     }
 
     @GetMapping("{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ApiResponse getParkingLotById(@PathVariable Long id) {
         return ApiResponse.ok(parkingLotService.getParkingLotById(id));
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ApiResponse getAllParkingLots() {
         return ApiResponse.ok(parkingLotService.getAllParkingLots());
     }
 
     @PostMapping()
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ApiResponse saveParkingLot(@RequestBody ParkingLotDto parkingLotDto) {
         return null;
         //return ApiResponse.ok(parkingLotService.saveParkingLot(parkingLotDto, parkingLotDto.getOwnerId()));
     }
 
     @DeleteMapping("{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<Void> deleteLotSummary(@PathVariable Long id) {
         parkingLotService.deleteParkingLot(id);
         return new ResponseEntity<Void>(HttpStatus.OK);
